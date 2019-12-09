@@ -1,4 +1,5 @@
 mmanage.c:
+
 void vmem_init(void):
 	mit ftok einen key bekommen, den über shmget der shm id zuweisen
 	und dann den pointer über shmat and vmem anfügen.
