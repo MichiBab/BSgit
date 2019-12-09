@@ -1,0 +1,42 @@
+void vmem_init(void):
+	mit ftok einen key bekommen, den über shmget der shm id zuweisen
+	und dann den pointer über shmat and vmem anfügen.
+
+find_unused_frame():
+	counter, der nach dem aufruf +1 geht, und full pagetable signalisiert,
+	wenn der counter die vmem framenummer erreicht hat.
+
+void allocate_page(const int req_page, const int g_count):
+	sucht nach freier page,  wenn nicht vorhanden, wird ein Algorithmus
+	aufgerufen, der einen Platz freigibt.
+
+void fetchPage(int page, int frame):
+	Holt eine page aus dem pagefile in den virtuellen speicher
+
+void removePage(int page):
+	löscht eine page, falls sie beschrieben wurde muss sie zurück in 
+	pagefile gespeichert werden.
+
+void find_remove_fifo(int page, int * removedPage, int *frame):
+	first in first out. das erste wird rausgenommen,
+	wenn die queue voll ist.
+
+static void find_remove_aging(int page, int * removedPage, int *frame):
+	array das zu jeder geladenen page einen "counter" mitbringt.
+	bei jeder memory operation wird der counter verschoben. Die 
+	page mit dem niedrigsten count ist somit am längsten ungenutzt
+	und wird rausgenommen. Pages, die benutzt werden, kriegen den
+	Startwert dazugepackt. Pages, die somit oft genutzt werden,
+	werden lange drin bleiben, bis sie nicht mehr genutzt werden.
+
+static void update_age_reset_ref(void):
+	updatet die age informationen von jedem eintrag. geht auch auf
+	referenzierungen ein, packt die startage hinzu und macht das
+	ref flag weg.
+
+static void find_remove_clock(int page, int * removedPage, int *frame):
+	arbeitet nur anhand des ref flags. geht alle einträge durch und
+	checkt ob das ref flag gesetzt ist. ist das refflag gesetzt, wird
+	es weggemacht und weitergesucht im ringbuffer. beim finden eines
+	unreferenzierten elements, wird dieses ausgeladen. pages werden
+	in read und write erneut getaggt mit dem ref flag.	

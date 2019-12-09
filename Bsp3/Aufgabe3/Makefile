@@ -17,9 +17,9 @@ DOCDIR   = ./html
 
 EXEFILES     = mmanage vmappl # Anwendungen
 srcfiles     = $(wildcard $(SRCDIR)/*.c) # all src files
-toolfiles    = $(patsubst %,$(SRCDIR)/%.c,$(EXEFILES))  # src files containing main
-modulefiles  = $(filter-out $(toolfiles),$(srcfiles)) # modules uesd by tools; does not contain main 
-deps         = $(subst $(SRCDIR)/,$(OBJDIR)/,$(srcfiles:.c=.d))
+toolfiles    = $(patsubst %,$(SRCDIR)/%.c,$(EXEFILES))  # src files containing main  => patsubst (pattern,replacement,text)
+modulefiles  = $(filter-out $(toolfiles),$(srcfiles)) # modules uesd by tools; does not contain main => $(filter-out $(mains),$(objects))
+deps         = $(subst $(SRCDIR)/,$(OBJDIR)/,$(srcfiles:.c=.d)) #=> $(subst from,to,text)
 
 all: $(patsubst %,$(BINDIR)/%,$(EXEFILES))
 
