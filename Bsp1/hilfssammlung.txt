@@ -1,0 +1,89 @@
+--BESONDERE SHELLVARIABLEN
+$0 	
+Diese Variable enthält den Namen des aktuellen Prozesses, beispielsweise /bin/bash.
+Im Fall eines laufenden Shellskripts entspricht $0 dem Namen der Skriptdatei.
+
+$1 bis $9 	Diese Variablen enthalten die beim Aufruf des Skripts übergebenen Argumente 1 bis 9.
+
+$* 	
+Diese Variable enthält alle beim Aufruf des Skripts übergebenen Argumente als eine einzelne Zeichenkette.
+Die einzelnen Argumente sind dabei durch Leerzeicheen getrennt.
+
+$@ 	Diese Variable enthält alle beim Aufruf des Skripts übergebenen Argumente als Liste.
+
+$# 	Die Variable gibt die Anzahl der beim Aufruf des Skripts übergebenen Argumente an.
+
+$- 	Diese Variable enthält alle im aktuellen Prozess eingeschalteten Optionsbuchstaben.
+
+$? 	Diese Variable enthält den Exit-Status der zuletzt ausgeführten Anweisung.
+
+$$ 	Diese Variable enthält die Prozess-Nummer der Shell, in der das Skript ausgeführt wird.
+
+$! 	Diese Variable enthält die Prozess-Nummer des zuletzt erzeugten Hintergrundprozesses.
+
+---------------------------------------------------------------------------------------------- 
+SHELL SONDERZEICHEN:
+*: beliebiger Text außer \
+?: ein beliebiges Zeichen außer \
+[aei]: a, e oder i
+[a-z]: a bis z
+^: Anfang
+
+----------------------------------------------------------------------------------------------
+TERMINALPROGRAMME:
+
+mkdir: Make Directory
+
+script: Aktionen Aufzeichnen
+
+cd: pfad
+
+pwd: Mein Pfad
+
+whoami: Nutzername anzeigen
+
+ls: Verzeichnisinhalt ausgeben
+	-l liste zb
+
+cat: Textdatei anzeigen
+	cat << EOF > Testdatei.txt
+	//erstellt bis EOF alleine steht Eingabe in Testdatei.txt durch Konsole
+
+less: Textdatei anzeigen wenn Datei groß ist
+
+>: Ausgabe umleiten.
+	ls /etc > my_listing.txt //piped ls etc in neue textdatei
+
+>>: Ausgabe anhängen
+	ls /bin >> my_listing.txt Hängt es ans Ende der Datei rein
+
+sort -r < my_listing.txt: packt my_listing.txt als Eingabe nach sort -r
+
+|: Standarteingabe des programms mit Standartausgabe verbinden
+	ls -l | sort -rnk5
+
+cp: Kopieren
+
+mv: verschieben
+	Kann zum umbennenen benutzt werden: mv text4.txt text04.txt
+
+ln: Verlinken
+	mit ln -s symbolischer Dateilink
+
+rm: löschen
+	mit rm -r rekursiv für Ordner
+
+grep: Suche in texten
+	
+file: get file data
+	mit --mime-type den Dateityp ausgeben lassen
+
+
+
+
+
+
+
+
+
+

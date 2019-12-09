@@ -1,0 +1,19 @@
+Entwurf BS_P1_Gruppe3 Lars Kowoll, Michael Babic
+
+typesort.sh;
+
+Unsere Idee:
+	Wir haben eine while schleife die mit dem ersten Argument beginnt,
+	Wir nehmen das erste Argument und schauen ob es -h ist
+	
+	if -h: gib hilfstext aus
+
+	else: 
+	erstelle variable grepOption:
+	case n: grep "text"
+	case t: grep -v "text"
+
+	dann mit filter * mimetype | grep grepOption arbeiten und es an sort 		weitergeben.
+	Hier zb auch auf reverse achten.
+
+	Shift to next argument and goto while beginn
