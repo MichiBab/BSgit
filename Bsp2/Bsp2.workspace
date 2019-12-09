@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CodeLite_Workspace Name="Bsp2" Database="" Version="10000">
+  <Project Name="Philosophenproblem" Path="Philosophenproblem/Philosophenproblem.project" Active="No"/>
+  <Project Name="C-Philosophenproblem" Path="C-Philosophenproblem/C-Philosophenproblem.project" Active="Yes"/>
+  <BuildMatrix>
+    <WorkspaceConfiguration Name="Debug" Selected="yes">
+      <Environment/>
+      <Project Name="Philosophenproblem" ConfigName="Debug"/>
+      <Project Name="C-Philosophenproblem" ConfigName="Debug"/>
+    </WorkspaceConfiguration>
+    <WorkspaceConfiguration Name="Release" Selected="yes">
+      <Environment/>
+      <Project Name="Philosophenproblem" ConfigName="Release"/>
+      <Project Name="C-Philosophenproblem" ConfigName="Release"/>
+    </WorkspaceConfiguration>
+  </BuildMatrix>
+</CodeLite_Workspace>

@@ -1,0 +1,1 @@
+../build-Debug/C-Philosophenproblem/main.c.o ../build-Debug/C-Philosophenproblem/gewichte.c.o ../build-Debug/C-Philosophenproblem/err.c.o ../build-Debug/C-Philosophenproblem/routine.c.o ../build-Debug/C-Philosophenproblem/controller.c.o

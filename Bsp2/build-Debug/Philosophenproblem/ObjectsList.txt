@@ -1,0 +1,1 @@
+../build-Debug/Philosophenproblem/main.cpp.o ../build-Debug/Philosophenproblem/philothread.cpp.o ../build-Debug/Philosophenproblem/gewichte.cpp.o
