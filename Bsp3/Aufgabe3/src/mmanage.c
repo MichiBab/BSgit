@@ -501,7 +501,7 @@ static void find_remove_aging(int page, int * removedPage, int *frame){
 static void update_age_reset_ref(void) {
 	for(int i = 0; i<VMEM_NPAGES;i++){
 		if (vmem->pt[i].frame != VOID_IDX) { // -check if its valid
-			age[vmem->pt[i].frame].age >>= 1; // make it older
+			age[vmem->pt[i].frame].age >>= 1; 
 			age[vmem->pt[i].frame].page = i; // set page
 			if ((vmem->pt[i].flags & PTF_REF) == PTF_REF) {//if referenced
 				age[vmem->pt[i].frame].age |= START_AGE; //give age update
