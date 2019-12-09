@@ -1,3 +1,4 @@
+mmanage.c:
 void vmem_init(void):
 	mit ftok einen key bekommen, den über shmget der shm id zuweisen
 	und dann den pointer über shmat and vmem anfügen.
@@ -40,3 +41,20 @@ static void find_remove_clock(int page, int * removedPage, int *frame):
 	es weggemacht und weitergesucht im ringbuffer. beim finden eines
 	unreferenzierten elements, wird dieses ausgeladen. pages werden
 	in read und write erneut getaggt mit dem ref flag.	
+
+vmaccess.c:
+
+static void vmem_init(void):
+	mit ftok einen key bekommen, den über shmget der shm id zuweisen und dann den pointer über shmat and vmem anfügen.
+
+static void vmem_put_page_into_mem(int address):
+	Die Funktion speichert eine Page in den Speicher, wenn das PTF_PRESENT Flag gesetzt ist. Dafür wird der Hauptspeicher 		benachrichtigt. Die Funktion wird aufgerufen, wenn die Funktion vmem_red(int) oder vem_write(int, int) aufgerufen wird.
+
+
+Beide Funktionen müssen aus address die physikalische Adresse berechnen. Diese setzt sich wie folgt zusammen: FRAME * VMEM_PAGESIZE + offset. Dabei bilden die letzten Bits der Adresse den Offset.
+
+int vmem_read(int address):
+	Bei lesendem Zugriff wird die Funktion aufgerufen. Dementsprechend muss nur das PTF_REF gesetzt werden.
+
+void vmem_write(int address, int data)
+	Bei schreibendem Zugriff wird die Funktion aufgerufen. Da die Page verändert wurde ist es wichtig, dass die Page mit dem 	 Flag. PTF_DIRTY versehen wird, damit die „neue“ Page im Hauptspeicher gesichert wird.
