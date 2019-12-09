@@ -4,7 +4,7 @@ void vmem_init(void):
 
 find_unused_frame():
 	counter, der nach dem aufruf +1 geht, und full pagetable signalisiert,
-	wenn der counter die vmem framenummer erreicht hat.
+	wenn der counter die vmem maxframenummer erreicht hat.
 
 void allocate_page(const int req_page, const int g_count):
 	sucht nach freier page,  wenn nicht vorhanden, wird ein Algorithmus
