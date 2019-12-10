@@ -393,6 +393,12 @@ void cleanup(void) {
 	destroySyncDataExchange();
 }
 
+//return 1 if is valid. else 0
+static int is_valid(int arg){
+    return !(arg == VOID_IDX);
+    
+}
+
 void vmem_init(void) {
     /* Create System V shared memory */
     //Pathname and Project Identifier to key
@@ -429,7 +435,7 @@ void allocate_page(const int req_page, const int g_count) {
     //for paging algos
     int removedPage = VOID_IDX;
     //if no free space
-    if(frame == VOID_IDX){
+    if(!is_valid(frame)){
     	//through scan method defined
     	pageRepAlgo(req_page, &removedPage, 
     					&frame);
@@ -453,6 +459,8 @@ void fetchPage(int page, int frame){
 	fetch_page_from_pagefile(page, page_frame);
 	vmem->pt[page].frame = frame;	//save which frame the page contain
 	vmem->pt[page].flags |= PTF_PRESENT; //Tag the page as present
+	age[frame].page = page;
+	age[frame].age = START_AGE;
 }
 
 void removePage(int page) {
@@ -468,14 +476,8 @@ void removePage(int page) {
 
 void find_remove_fifo(int page, int * removedPage, int *frame){
 	*frame = fifo_counter;
-	for(int i = 0; i < VMEM_NPAGES ; i++){
-		if(vmem->pt[i].frame == fifo_counter){
-			*removedPage = i;
-			i = VMEM_NPAGES;//break out
-		}
-	}
+    *removedPage = age[fifo_counter].page;
 	removePage(*removedPage);
-	//update fifo counter
 	fifo_counter++;
 	fifo_counter %= VMEM_NFRAMES;
 	
@@ -484,7 +486,7 @@ void find_remove_fifo(int page, int * removedPage, int *frame){
 static void find_remove_aging(int page, int * removedPage, int *frame){
 	int smallest_index = 0;
 	for(int i = 0; i<VMEM_NFRAMES;i++){
-		if(age[i].page != VOID_IDX){
+		if(is_valid(age[i].page)){
 			if(age[i].age <= age[smallest_index].age){
 				smallest_index = i;
 			}
@@ -493,43 +495,36 @@ static void find_remove_aging(int page, int * removedPage, int *frame){
 	*frame = smallest_index;
 	*removedPage = age[smallest_index].page;
 	removePage(*removedPage);
-	age[smallest_index].page = page;
-	age[smallest_index].age = START_AGE;
 
 }
 
 static void update_age_reset_ref(void) {
 	for(int i = 0; i<VMEM_NPAGES;i++){
-		if (vmem->pt[i].frame != VOID_IDX) { // -check if its valid
-			age[vmem->pt[i].frame].age >>= 1; 
-			age[vmem->pt[i].frame].page = i; // set page
+		if (is_valid(vmem->pt[i].frame) ) { // -check if its valid
+			age[vmem->pt[i].frame].age = age[vmem->pt[i].frame].age >> 1; 
 			if ((vmem->pt[i].flags & PTF_REF) == PTF_REF) {//if referenced
 				age[vmem->pt[i].frame].age |= START_AGE; //give age update
 				vmem->pt[i].flags &= ~PTF_REF; //erase ref flag
 			}
+			age[vmem->pt[i].frame].page = i; // set page
 		}
 
 	}
 } 
 
-//searches for first not referenced page. if a page is referenced, 
-//it will be marked as unreferenced and the next one is checked in a cycle
+
 static void find_remove_clock(int page, int * removedPage, int *frame){
 	int exitbool = 1;
 	while(exitbool){
-		for (int i = 0; i < VMEM_NPAGES; i++) {
-			if(vmem->pt[i].frame == clock_counter){
-				if (!(vmem->pt[i].flags & PTF_REF)) { //-Check if the REF flag is NOT set
-					*removedPage = i;
-					*frame = clock_counter;
-					exitbool = 0;
-				}
-				else {
-					vmem->pt[i].flags &= ~PTF_REF; //-Reset REF flag
-				}
-				i = VMEM_NPAGES; //break out
+		int page_index = age[clock_counter].page;
+		if (!(vmem->pt[page_index].flags & PTF_REF)) { //-Check if the REF flag is NOT set
+			*removedPage = page_index;
+			*frame = clock_counter;
+			exitbool = 0;
 			}
-		}
+		else {
+			vmem->pt[page_index].flags &= ~PTF_REF; //-Reset REF flag
+			}
 		clock_counter++;
 		clock_counter %= VMEM_NFRAMES ;
 	}
