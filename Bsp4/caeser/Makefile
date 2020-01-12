@@ -1,17 +1,17 @@
-TARGET   = Philosophenproblem
+TARGET   = CCP
 
 CC       = gcc
 # compiling flags here
-CFLAGS   = -lrt -pthread -MD -MMD
+CFLAGS   = -g -pthread -MD -MMD
 
 LINKER   = gcc -o 
 # linking flags here
-LFLAGS   = -lrt -g -Wall -I. -lm -pthread #-m fuer autodependencys
+LFLAGS   = -g -pthread #-m fuer autodependencys
 
 # change these to set the proper directories where each files shoould be
 SRCDIR   = src
 OBJDIR   = obj
-TESTDIR   = test
+TESTDIR   = .
 INSTALLDIR = bin
 
 SOURCES  := $(wildcard $(SRCDIR)/*.c)
@@ -22,14 +22,12 @@ rm       = rm -f
 
 INCLUDES := $(OBJDIR)/:.o=.d
 
-all: dirs $(TESTDIR)/$(TARGET) install
-
+all: $(TESTDIR)/$(TARGET) install
 
 -include $(OBJECTS:.o=.d)
 
 .PHONEY: dirs
 dirs: 
-	mkdir -p $(TESTDIR)
 	mkdir -p $(OBJDIR)
 	mkdir -p $(INSTALLDIR)
 
@@ -43,7 +41,7 @@ $(OBJECTS): $(OBJDIR)/%.o : $(SRCDIR)/%.c
 
 .PHONEY: install
 install: 
-	cp $(TESTDIR)/* $(INSTALLDIR)/
+	mv $(TARGET) $(INSTALLDIR)/
 	chmod 744 $(INSTALLDIR)/$(TARGET)
 
 .PHONEY: help
@@ -52,12 +50,17 @@ help:
 
 .PHONEY: clean
 clean:
-	@$(rm) $(OBJECTS)
+	@$(rm) $(OBJDIR)/*
 	@echo "Cleanup complete!"
+
+.PHONEY: run
+run:
+	clear
+	$(INSTALLDIR)/$(TARGET)
+	#gnome-terminal -x sh -c "$(INSTALLDIR)/$(TARGET)"
 
 .PHONEY: remove
 remove: clean
-	rm -r $(TESTDIR)
 	rm -r $(OBJDIR)
 	rm -r $(INSTALLDIR)
 	@echo "Executable removed!"
