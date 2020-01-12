@@ -4,36 +4,53 @@
 
 
 int main(void){
-
-    char* input = "Hallo; mein Name ist M !! :) ";
-    char output[10];
-    encode(input, output, sizeof(output), 5);
+    int buffersize = 20;
+    char* input = "hellooooooooooooooooooooooooooooooooooooooooooooooooooooo";
+    char output[buffersize];
+    for(int i = 0; i < buffersize; i++){
+        output[i] = 0;
+    }
+    encode(input, output, buffersize, 5);
     printf("%s\n",output);
-    decode(output, output, sizeof(output), 5);
+    decode(output, output, buffersize, 5);
     printf("%s\n",output);
     return 0;
 }
 
 
-static void encode(char *input, char *output, int outputSize, int shiftNum){
-    if(sizeof(input)<sizeof(output)){
-        outputSize = sizeof(input);
+
+static void encode(char *input, char *output, int buffersize, int shiftNum){
+    int inputSize = get_string_size(input);
+    if(inputSize<buffersize){
+        buffersize = inputSize;
     }
-    for(int i = 0; i < outputSize; i++){
-        char c = input[i];
-        shift_char(&c,shiftNum);
-        output[i] = c;
+    printf("inp size == : %d\n",inputSize);
+    for(int i = 0; i < buffersize; i++){
+        if(i == buffersize-1){
+            output[i] = '\0';
+        }
+        else{
+            char c = input[i];
+            shift_char(&c,shiftNum);
+            output[i] = c;
+        } 
     }
 }
 
-static void decode(char *input, char *output, int outputSize, int shiftNum){
-    if(sizeof(input)<sizeof(output)){
-        outputSize = sizeof(input);
+static void decode(char *input, char *output, int buffersize, int shiftNum){
+    int inputSize = get_string_size(input);
+    if(inputSize<buffersize){
+        buffersize = inputSize;
     }
-    for(int i = 0; i < outputSize; i++){
-        char c = input[i];
-        unshift_char(&c,shiftNum);
-        output[i] = c;
+    for(int i = 0; i < buffersize; i++){
+        if(i == buffersize-1){
+            output[i] = '\0';
+        }
+        else{
+            char c = input[i];
+            unshift_char(&c,shiftNum);
+            output[i] = c;
+        } 
     }
 }
 
@@ -86,6 +103,15 @@ static int is_ascii(char c){
     }
     if(c >= 'A' && c <= 'Z'){
         return 1;
+    }
+    return 0;
+}
+
+static int get_string_size(char* string){
+    for(int i = 0; i < __UINT32_MAX__;i++){
+        if(string[i] == '\0'){
+            return i+1;
+        }
     }
     return 0;
 }
