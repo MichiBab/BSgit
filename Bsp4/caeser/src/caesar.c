@@ -4,8 +4,8 @@
 
 
 int main(void){
-    int buffersize = 20;
-    char* input = "hellooooooooooooooooooooooooooooooooooooooooooooooooooooo";
+    int buffersize = 90;
+    char* input = "Hello, my name is x";
     char output[buffersize];
     for(int i = 0; i < buffersize; i++){
         output[i] = 0;
@@ -24,7 +24,6 @@ static void encode(char *input, char *output, int buffersize, int shiftNum){
     if(inputSize<buffersize){
         buffersize = inputSize;
     }
-    printf("inp size == : %d\n",inputSize);
     for(int i = 0; i < buffersize; i++){
         if(i == buffersize-1){
             output[i] = '\0';
