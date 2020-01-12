@@ -5,7 +5,7 @@
 
 int main(void){
 
-    char* input = "Hallo; mein Name ist Roxana Mondragon !! :) ";
+    char* input = "Hallo; mein Name ist M !! :) ";
     char output[10];
     encode(input, output, sizeof(output), 5);
     printf("%s\n",output);
