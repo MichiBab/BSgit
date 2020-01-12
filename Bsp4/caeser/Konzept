@@ -1,0 +1,81 @@
+DRIVERSPEZIFISCH:
+    Wir brauchen ein module_init, welches beim installieren aufgerufen wird und ein module_exit, welches
+    beim removen aufgerufen wird. Außerdem wollen wir variable Parameter haben, das erreichen wir mit
+    module_param(PARAM,TYPE,RECHTE). Hier wollen wir BUFFERSIZE und SHIFTNUM einstellen können für die
+    Caesar Verschlüsselung. Wenn es nicht eingestellt wird, wird der Standartwert übernommen.
+
+INIT:
+    Kernel wählt dynamisch eine Major Number. Es wird auch Speicher für den Buffer allokiert.
+    Danach werden 2 Devices regestriert, einmal mit der MAJOR NUMBER,MINOR NUMBER 0 und 
+    MAJOR NUMBER, MINOR NUMBER 1.
+
+EXIT:
+    Free used Memory.
+
+DYNAMIC ALLOC:
+    " Allocates a range of char device numbers "
+    int alloc_chrdev_region(dev_t *dev, unsigned int firstminor, unsigned int count, char *name);
+    dev == device, firstminor, count == maxminor, name == dev name for /proc/devices
+
+FUNKTIONEN FÜR KOMMUNIKATION:
+    Durch struct file_operations setzen wir ein open, read, write, release für den Treiber. Wenn
+    nun auf den Treiber geschrieben wird, wird .write = WRITE_FUNC aufgerufen und bei read die 
+    .read = READ_FUNC. Bei open die open func und bei close die close func. Ein C programm könnte
+    also einen File descriptor erstellen mit dem treiber und im Kernellog würde sich die .open func
+    aufrufen.
+
+BLOCKING READ WRITE:
+    Puffer leer: read landet in wait queue, bis Puffersize > 0.
+                 write wird folgend schreiben, danach Puffersize um das gelesene erhöhen und wake up callen.
+
+    Puffer voll: write blockiert in wait queue, bis Puffersize < Maxpuffersize
+                 read wird folgend lesen, danach Puffersize um das gelesene verkleinern und wake up callen.
+    Zyklisch = als ringbuffer implementieren ?? also kann hallo [l][o][][][][h][a][l] lauten, wenn der Index
+    bei 5 ist.
+    Wenn man A B C D E F G schreibt in einen Buffer der nur [ ] [ ] [ ] groß ist, wird:
+    write: A B C *BLOCK
+    Hier wartet nun write bis etwas frei wird.
+    Jetzt liest read:
+    CAT ABC und macht einen wake up für write.
+    Write schreibt nun D E F *BLOCK
+    und wartet auf ein neues read.
+    read ließt DEF und waked up.
+    jetzt wird G geschrieben.
+    Der read index ist bei 0.
+    jetzt wird read aufgerufen und es steht:
+    G nach read.
+    Jetzt wird wieder Read aufgerufen:
+    *BLOCK --waiting for a write.
+    Write schreibt nun ein Z.
+    Das Z wird nun in [ ] [Z] [ ]
+    geschrieben, da der write index auf 1 steht.
+    Read wird nun hier auch von 1 beginnen, da beim letzten
+    read das G konsumiert wurde und um einen index erhöht wurde.
+
+EBUSY CALL:
+    Wenn minor 0 oder minor 1 bereits von einem Prozess aufgerufen wurden sind, wird EBUSY returned.
+    Es wird für Minor 0 und Minor 1 jeweils ein Mutex spendiert, wenn nun ein weiterer Prozess read
+    aufruft, wird folgend nach einem mutex trylock ein EBUSY rausgegeben.
+
+INSTALLIEREN:
+    Eine makefile die ein
+    "obj-m += *.o"
+    installiert mit: 
+    "make -C /lib/modules/$(shell uname -r)/build/ M=$(PWD) modules"
+    Daraus folgt dann eine .ko file, die mit
+    "sudo insmod CAESER.ko"
+    in den Kernel geladen wird.
+
+DEINSTALLIEREN:
+    make clean in der makefile mit:
+    "make -C /lib/modules/$(shell uname -r)/build/ M=$(PWD) clean"
+    und 
+    "sudo rmmod CAESER.ko"
+
+
+NÜTZLICHE BEFEHLE:
+    lsmod                            zeigt die Kernel module an.
+    ls -l /dev/cae*                  gibt die Installierten Devices aus, 
+                                     hier sollte eins mit minor 0 und minor 1 rauskommen
+    sudo tail -f /var/log/kern.log   gibt den Kernel log aus, um printk zb zu sehen
+    
