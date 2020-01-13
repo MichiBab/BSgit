@@ -13,11 +13,11 @@ rm -f /dev/${device}e   # Encode
 rm -f /dev/${device}d   # decode 
 
 # $2 Zweite spalte == modulname. Printen der Ersten Spalte (major Num)
-major=224
+major=$(grep "caes" /proc/devices | grep -o '[[:digit:]]*')
 echo $major
 
-mknod /dev/${device}e c 199 0 # create node Encode as minnum 0
-mknod /dev/${device}d c 199 1 # create node decode as minnum 1
+mknod /dev/${device}e c $major 0 # create node Encode as minnum 0
+mknod /dev/${device}d c $major 1 # create node decode as minnum 1
 
 
 # give appropriate group/permissions, and change the group.
