@@ -33,9 +33,10 @@
 /* #include <asm/uaccess.h>	/\* copy_*_user *\/ */
 #include <linux/uaccess.h>	/* copy_*_user */
 
-#include "caesar.h"		/* local definitions */
+#include "caesarKernel.h"		/* local definitions */
 
 #define KEY 3
+
 /*
  * Our parameters which can be set at load time.
  */
