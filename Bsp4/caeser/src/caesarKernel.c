@@ -35,7 +35,6 @@
 
 #include "caesarKernel.h"		/* local definitions */
 
-#define KEY 3
 /*
  * Our parameters which can be set at load time.
  */
@@ -46,16 +45,12 @@ int caesar_nr_devs = CAESAR_NR_DEVS;	/* number of bare caesar devices */
 int caesar_quantum = CAESAR_QUANTUM;
 int caesar_qset =    CAESAR_QSET;
 int shiftNum = 3;
-int caesar_p_buffer =  CAESAR_P_BUFFER;
+int buffersize =  200;
 
-module_param(caesar_major, int, S_IRUGO);
-module_param(caesar_minor, int, S_IRUGO);
-module_param(caesar_nr_devs, int, S_IRUGO);
-module_param(caesar_quantum, int, S_IRUGO);
-module_param(caesar_qset, int, S_IRUGO);
+module_param(buffersize, int, S_IRUGO);
 module_param(shiftNum, int, S_IRUGO);
 
-MODULE_AUTHOR("Alessandro Rubini, Jonathan Corbet");
+MODULE_AUTHOR("Lars Kowoll, Michael Babic");
 MODULE_LICENSE("Dual BSD/GPL");
 
 struct caesar_dev *caesar_devices;	/* allocated in caesar_init_module */
@@ -148,7 +143,7 @@ ssize_t caesar_read(struct file *filp, char __user *buf, size_t count,
 		count = min(count, (size_t)(dev->wp - dev->rp));
 	else /* the write pointer has wrapped, return data up to dev->end */
 		count = min(count, (size_t)(dev->end - dev->rp));
-
+    dev->rp--;
     // Hier muss ein Aufruf der Funktion encode, decode erfolgen, je nach minior number
 	switch (MINOR(dev->cdev.dev)) {
 		case 0:
@@ -167,6 +162,7 @@ ssize_t caesar_read(struct file *filp, char __user *buf, size_t count,
 		up (&dev->sem);
 		return -EFAULT;
 	}
+	dev->rp++;
 	dev->rp += count;
 	if (dev->rp == dev->end)
 		dev->rp = dev->buffer; /* wrapped */
@@ -266,7 +262,6 @@ ssize_t caesar_write(struct file *filp, const char __user *buf, size_t count,
 
 struct file_operations caesar_fops = {
    .owner =    THIS_MODULE,
-   //.llseek =   caesar_llseek,
    .read =     caesar_read,
    .write =    caesar_write,
    .open =     caesar_open,
@@ -365,12 +360,12 @@ int caesar_init_module(void)
     init_MUTEX(&caesar_p->sem);
     
     /* allocate the buffer */
-    caesar_p->buffer = kmalloc(caesar_p_buffer, GFP_KERNEL);
+    caesar_p->buffer = kmalloc(buffersize, GFP_KERNEL);
     if (!caesar_p->buffer) {
         result = -ENOMEM;
     }
 
-    caesar_p->buffersize = caesar_p_buffer;
+    caesar_p->buffersize = buffersize;
     caesar_p->end = caesar_p->buffer + caesar_p->buffersize;
     caesar_p->rp = caesar_p->wp = caesar_p->buffer; /* rd and wr from the beginning */
 
