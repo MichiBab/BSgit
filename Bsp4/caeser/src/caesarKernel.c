@@ -55,6 +55,9 @@ module_param(caesar_qset, int, S_IRUGO);
 MODULE_AUTHOR("Alessandro Rubini, Jonathan Corbet");
 MODULE_LICENSE("Dual BSD/GPL");
 
+
+
+
 struct caesar_dev *caesar_devices;	/* allocated in caesar_init_module */
 
 struct caesar_pipe {
@@ -68,7 +71,7 @@ struct caesar_pipe {
         struct cdev cdev;                  /* Char device structure */
 };
 
-static struct caesar_pipe *caesar_p_devices;
+//static struct caesar_pipe *caesar_p_devices;
 
 static void encode(char *input, char *output, int buffersize, int shiftNum);
 static void decode(char *input, char *output, int buffersize, int shiftNum);
@@ -76,7 +79,8 @@ static int is_ascii(char c);
 static int shift_char(char* c, int shiftNum);
 static int unshift_char(char* c, int shiftNum);
 static int get_string_size(char* string);
-
+int shiftNum = 3;
+module_param(shiftNum, int, S_IRUGO);
 /*
  * Open and close
  */
@@ -85,11 +89,12 @@ int caesar_open(struct inode *inode, struct file *filp)
 {
    struct caesar_dev *dev; /* device information */
 
+   //TODO: HIER DIE ABFRAGE MIT DEV SPEZIFISCHER MUTEX
     /* use f_mode,not  f_flags: it's cleaner (fs/open.c tells why) */
-	if (filp->f_mode & FMODE_READ)
-		dev->nreaders++; // todo, es darf maximal ein Reader existieren
-	if (filp->f_mode & FMODE_WRITE)
-		dev->nwriters++; // todo, es darf maximal ein Writer existieren
+	if (filp->f_mode & FMODE_READ){}
+		//dev->nreaders++; // todo, es darf maximal ein Reader existieren
+	if (filp->f_mode & FMODE_WRITE){}
+		//dev->nwriters++; // todo, es darf maximal ein Writer existieren
 
    dev = container_of(inode->i_cdev, struct caesar_dev, cdev);
    filp->private_data = dev; /* for other methods */
@@ -100,14 +105,15 @@ int caesar_open(struct inode *inode, struct file *filp)
 int caesar_release(struct inode *inode, struct file *filp)
 {
 
-	if (filp->f_mode & FMODE_READ)
-		dev->nreaders--; // todo, es darf maximal ein Reader existieren
-	if (filp->f_mode & FMODE_WRITE)
-		dev->nwriters--; // todo, es darf maximal ein Writer existieren
-	if (dev->nreaders + dev->nwriters == 0) {
-		kfree(dev->buffer);
-		dev->buffer = NULL; /* the other fields are not checked on open */
-	}
+    //TODO: Hier soll die mutex freigegeben werden vom device
+	if (filp->f_mode & FMODE_READ){}
+		//dev->nreaders--; // todo, es darf maximal ein Reader existieren
+	if (filp->f_mode & FMODE_WRITE){}
+		//dev->nwriters--; // todo, es darf maximal ein Writer existieren
+	//if (dev->nreaders + dev->nwriters == 0) {
+	//	kfree(dev->buffer);
+	//	dev->buffer = NULL; /* the other fields are not checked on open */
+	//}
 	return 0;
 }
 
@@ -143,10 +149,10 @@ ssize_t caesar_read(struct file *filp, char __user *buf, size_t count,
     // Hier muss ein Aufruf der Funktion encode, decode erfolgen, je nach minior number
 	switch (MINOR(dev->cdev.dev)) {
 		case 0:
-				encode(buf, dev->rp, count, KEY);
+				encode(dev->rp, dev->rp, count, shiftNum);
 				break;
 		case 1:
-				decode(buf, dev->rp, count, KEY);
+				decode(dev->rp, dev->rp, count, shiftNum);
 				break;
 		default:
 				PDEBUG("The minor number is not correct");
@@ -169,6 +175,15 @@ ssize_t caesar_read(struct file *filp, char __user *buf, size_t count,
 	return count;
 }
 
+/* How much space is free? */
+//static int spacefree(struct caesar_pipe *dev);
+
+static int spacefree(struct caesar_pipe *dev){
+	if (dev->rp == dev->wp)
+		return dev->buffersize - 1;
+	return ((dev->rp + dev->buffersize - dev->wp) % dev->buffersize) - 1;
+}
+
 /* Wait for space for writing; caller must hold device semaphore.  On
  * error the semaphore will be released before returning. */
 static int caesar_getwritespace(struct caesar_pipe *dev, struct file *filp)
@@ -184,25 +199,20 @@ static int caesar_getwritespace(struct caesar_pipe *dev, struct file *filp)
 		if (spacefree(dev) == 0)
 			schedule();
 		finish_wait(&dev->outq, &wait);
-		if (signal_pending(current))
-			return -ERESTARTSYS; /* signal: tell the fs layer to handle it */
+		//if (signal_pending(current))
+		//	return -ERESTARTSYS; /* signal: tell the fs layer to handle it */
 		if (down_interruptible(&dev->sem))
 			return -ERESTARTSYS;
 	}
 	return 0;
 }	
 
-/* How much space is free? */
-static int spacefree(struct caesar_pipe *dev)
-{
-	if (dev->rp == dev->wp)
-		return dev->buffersize - 1;
-	return ((dev->rp + dev->buffersize - dev->wp) % dev->buffersize) - 1;
-}
+
 
 ssize_t caesar_write(struct file *filp, const char __user *buf, size_t count,
 		    loff_t *f_pos)
 {
+    
    struct caesar_pipe *dev = filp->private_data;
 	int result;
 
@@ -229,10 +239,10 @@ ssize_t caesar_write(struct file *filp, const char __user *buf, size_t count,
     // Hier muss ein Aufruf der Funktion encode, decode erfolgen, je nach minior number
 	switch (MINOR(dev->cdev.dev)) {
 		case 0:
-				encode(buf, dev->wp, count, KEY);
+				encode(dev->wp, dev->wp, count, shiftNum);
 				break;
 		case 1:
-				decode(buf, dev->wp, count, KEY);
+				decode(dev->wp, dev->wp, count, shiftNum);
 				break;
 		default:
 				PDEBUG("The minor number is not correct");
@@ -255,7 +265,7 @@ ssize_t caesar_write(struct file *filp, const char __user *buf, size_t count,
 
 struct file_operations caesar_fops = {
    .owner =    THIS_MODULE,
-   .llseek =   caesar_llseek,
+   //.llseek =   caesar_llseek,
    .read =     caesar_read,
    .write =    caesar_write,
    .open =     caesar_open,
@@ -273,7 +283,7 @@ struct file_operations caesar_fops = {
  */
 void caesar_cleanup_module(void)
 {
-   int i;
+   int i = 0;
    dev_t devno = MKDEV(caesar_major, caesar_minor);
 
    /* Get rid of our char dev entries */
@@ -345,7 +355,7 @@ int caesar_init_module(void)
 
    /* At this point call the init function for any friend device */
    dev = MKDEV(caesar_major, caesar_minor + caesar_nr_devs);
-   dev += caesar_p_init(dev);
+   //dev += caesar_p_init(dev);
 
    return 0; /* succeed */
 
@@ -355,7 +365,7 @@ int caesar_init_module(void)
 }
 
 static void encode(char *input, char *output, int buffersize, int shiftNum){
-    int i;
+    int i = 0;
     int inputSize = get_string_size(input);
     if(inputSize<buffersize){
         buffersize = inputSize;
@@ -373,7 +383,7 @@ static void encode(char *input, char *output, int buffersize, int shiftNum){
 }
 
 static void decode(char *input, char *output, int buffersize, int shiftNum){
-    int i;
+    int i = 0;
     int inputSize = get_string_size(input);
     if(inputSize<buffersize){
         buffersize = inputSize;
@@ -392,7 +402,7 @@ static void decode(char *input, char *output, int buffersize, int shiftNum){
 
 static int unshift_char(char* c, int shiftNum){
     //return if not in a-z or A-Z
-    int i;
+    int i = 0;
     if(!is_ascii(*c)){
         return 0;
     }
@@ -414,7 +424,7 @@ static int unshift_char(char* c, int shiftNum){
 
 static int shift_char(char* c, int shiftNum){
     //return if not in a-z or A-Z
-    int i;
+    int i = 0;
     if(!is_ascii(*c)){
         return 0;
     }
@@ -446,7 +456,7 @@ static int is_ascii(char c){
 }
 
 static int get_string_size(char* string){
-    int i;
+    int i = 0;
     for( i = 0; i < __UINT32_MAX__;i++){
         if(string[i] == '\0'){
             return i+1;

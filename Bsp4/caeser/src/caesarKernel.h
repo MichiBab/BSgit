@@ -49,7 +49,7 @@
 #endif
 
 #ifndef CAESAR_NR_DEVS
-#define CAESAR_NR_DEVS 2    /* caesar0 through caesar3 */
+#define CAESAR_NR_DEVS 1    /* caesar0 through caesar3 */
 #endif
 
 #ifndef CAESAR_P_NR_DEVS
@@ -135,6 +135,8 @@ loff_t  caesar_llseek(struct file *filp, loff_t off, int whence);
 int     caesar_ioctl(struct inode *inode, struct file *filp,
                     unsigned int cmd, unsigned long arg);
 
+
+//static int spacefree(struct caesar_pipe *dev);
 
 /*
  * Ioctl definitions
