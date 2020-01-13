@@ -49,7 +49,7 @@
 #endif
 
 #ifndef CAESAR_NR_DEVS
-#define CAESAR_NR_DEVS 1    /* caesar0 through caesar3 */
+#define CAESAR_NR_DEVS 2    /* caesar0 through caesar3 */
 #endif
 
 #ifndef CAESAR_P_NR_DEVS
