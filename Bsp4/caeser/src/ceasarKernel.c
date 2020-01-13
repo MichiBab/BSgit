@@ -35,6 +35,7 @@
 
 #include "ceasar.h"		/* local definitions */
 
+#define KEY 3
 /*
  * Our parameters which can be set at load time.
  */
@@ -56,15 +57,25 @@ MODULE_LICENSE("Dual BSD/GPL");
 
 struct ceasar_dev *ceasar_devices;	/* allocated in ceasar_init_module */
 
-/*
- * Empty out the ceasar device; must be called with the device
- * semaphore held.
- */
-int ceasar_trim(struct ceasar_dev *dev)
-{
-    // Funktion wird nicht benötigt, wir benutzen feste Groesse von Geraeten
-   return 0;
-}
+struct ceasar_pipe {
+        wait_queue_head_t inq, outq;       /* read and write queues */
+        char *buffer, *end;                /* begin of buf, end of buf */
+        int buffersize;                    /* used in pointer arithmetic */
+        char *rp, *wp;                     /* where to read, where to write */
+        int nreaders, nwriters;            /* number of openings for r/w */
+        struct fasync_struct *async_queue; /* asynchronous readers */
+        struct semaphore sem;              /* mutual exclusion semaphore */
+        struct cdev cdev;                  /* Char device structure */
+};
+
+static struct ceasar_pipe *ceasar_p_devices;
+
+static void encode(char *input, char *output, int buffersize, int shiftNum);
+static void decode(char *input, char *output, int buffersize, int shiftNum);
+static int is_ascii(char c);
+static int shift_char(char* c, int shiftNum);
+static int unshift_char(char* c, int shiftNum);
+static int get_string_size(char* string);
 
 /*
  * Open and close
@@ -99,14 +110,6 @@ int ceasar_release(struct inode *inode, struct file *filp)
 	}
 	return 0;
 }
-/*
- * Follow the list
- */
-struct ceasar_qset *ceasar_follow(struct ceasar_dev *dev, int n)
-{
-  // Funktion wird nicht benötigt, wir benutzen feste Groesse von Geraeten
-   return 0;
-}
 
 /*
  * Data management: read and write
@@ -138,6 +141,18 @@ ssize_t ceasar_read(struct file *filp, char __user *buf, size_t count,
 		count = min(count, (size_t)(dev->end - dev->rp));
 
     // Hier muss ein Aufruf der Funktion encode, decode erfolgen, je nach minior number
+	switch (MINOR(dev->cdev.dev)) {
+		case 0:
+				encode(buf, dev->rp, count, KEY);
+				break;
+		case 1:
+				decode(buf, dev->rp, count, KEY);
+				break;
+		default:
+				PDEBUG("The minor number is not correct");
+				break;
+
+	}
 
 	if (copy_to_user(buf, dev->rp, count)) {
 		up (&dev->sem);
@@ -152,6 +167,37 @@ ssize_t ceasar_read(struct file *filp, char __user *buf, size_t count,
 	wake_up_interruptible(&dev->outq);
 	PDEBUG("\"%s\" did read %li bytes\n",current->comm, (long)count);
 	return count;
+}
+
+/* Wait for space for writing; caller must hold device semaphore.  On
+ * error the semaphore will be released before returning. */
+static int ceasar_getwritespace(struct ceasar_pipe *dev, struct file *filp)
+{
+	while (spacefree(dev) == 0) { /* full */
+		DEFINE_WAIT(wait);
+		
+		up(&dev->sem);
+		if (filp->f_flags & O_NONBLOCK)
+			return -EAGAIN;
+		PDEBUG("\"%s\" writing: going to sleep\n",current->comm);
+		prepare_to_wait(&dev->outq, &wait, TASK_INTERRUPTIBLE);
+		if (spacefree(dev) == 0)
+			schedule();
+		finish_wait(&dev->outq, &wait);
+		if (signal_pending(current))
+			return -ERESTARTSYS; /* signal: tell the fs layer to handle it */
+		if (down_interruptible(&dev->sem))
+			return -ERESTARTSYS;
+	}
+	return 0;
+}	
+
+/* How much space is free? */
+static int spacefree(struct ceasar_pipe *dev)
+{
+	if (dev->rp == dev->wp)
+		return dev->buffersize - 1;
+	return ((dev->rp + dev->buffersize - dev->wp) % dev->buffersize) - 1;
 }
 
 ssize_t ceasar_write(struct file *filp, const char __user *buf, size_t count,
@@ -181,6 +227,18 @@ ssize_t ceasar_write(struct file *filp, const char __user *buf, size_t count,
 	}
 
     // Hier muss ein Aufruf der Funktion encode, decode erfolgen, je nach minior number
+	switch (MINOR(dev->cdev.dev)) {
+		case 0:
+				encode(buf, dev->wp, count, KEY);
+				break;
+		case 1:
+				decode(buf, dev->wp, count, KEY);
+				break;
+		default:
+				PDEBUG("The minor number is not correct");
+				break;
+
+	}
 
 	dev->wp += count;
 	if (dev->wp == dev->end)
@@ -194,19 +252,6 @@ ssize_t ceasar_write(struct file *filp, const char __user *buf, size_t count,
 	PDEBUG("\"%s\" did write %li bytes\n",current->comm, (long)count);
 	return count;
 }
-
-/*
- * The ioctl() implementation
- */
-
-int ceasar_ioctl(struct inode *inode, struct file *filp,
-		unsigned int cmd, unsigned long arg)
-{
-    // no need for input/output controll
-   return 0;
-
-}
-
 
 struct file_operations ceasar_fops = {
    .owner =    THIS_MODULE,
@@ -243,7 +288,7 @@ void ceasar_cleanup_module(void)
    unregister_chrdev_region(devno, ceasar_nr_devs);
 
    /* and call the cleanup functions for friend devices */
-   ceasar_p_cleanup();
+   //ceasar_p_cleanup();
 }
 
 
@@ -307,6 +352,102 @@ int ceasar_init_module(void)
   fail:
    ceasar_cleanup_module();
    return result;
+}
+
+static void encode(char *input, char *output, int buffersize, int shiftNum){
+    int inputSize = get_string_size(input);
+    if(inputSize<buffersize){
+        buffersize = inputSize;
+    }
+    for(int i = 0; i < buffersize; i++){
+        if(i == buffersize-1){
+            output[i] = '\0';
+        }
+        else{
+            char c = input[i];
+            shift_char(&c,shiftNum);
+            output[i] = c;
+        } 
+    }
+}
+
+static void decode(char *input, char *output, int buffersize, int shiftNum){
+    int inputSize = get_string_size(input);
+    if(inputSize<buffersize){
+        buffersize = inputSize;
+    }
+    for(int i = 0; i < buffersize; i++){
+        if(i == buffersize-1){
+            output[i] = '\0';
+        }
+        else{
+            char c = input[i];
+            unshift_char(&c,shiftNum);
+            output[i] = c;
+        } 
+    }
+}
+
+static int unshift_char(char* c, int shiftNum){
+    //return if not in a-z or A-Z
+    if(!is_ascii(*c)){
+        return 0;
+    }
+    for(int i = 0; i < shiftNum; i++){
+        switch (*c){
+            case 'a':
+                *c = 'z';
+                break;
+            case 'A':
+                *c = 'Z';
+                break;
+            default:
+                *c -= 1;
+                break;
+        }   
+    }
+    return 0;
+}
+
+static int shift_char(char* c, int shiftNum){
+    //return if not in a-z or A-Z
+    if(!is_ascii(*c)){
+        return 0;
+    }
+    for(int i = 0; i < shiftNum; i++){
+        switch (*c){
+            case 'z':
+                *c = 'a';
+                break;
+            case 'Z':
+                *c = 'A';
+                break;
+            default:
+                *c += 1;
+                break;
+        }   
+    }
+    return 0;
+}
+
+//returns 1 if is ascii, else 0
+static int is_ascii(char c){
+    if(c >= 'a' && c <= 'z'){
+        return 1;
+    }
+    if(c >= 'A' && c <= 'Z'){
+        return 1;
+    }
+    return 0;
+}
+
+static int get_string_size(char* string){
+    for(int i = 0; i < __UINT32_MAX__;i++){
+        if(string[i] == '\0'){
+            return i+1;
+        }
+    }
+    return 0;
 }
 
 module_init(ceasar_init_module);
