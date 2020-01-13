@@ -36,7 +36,6 @@
 #include "caesarKernel.h"		/* local definitions */
 
 #define KEY 3
-
 /*
  * Our parameters which can be set at load time.
  */
@@ -356,11 +355,12 @@ int caesar_init_module(void)
 }
 
 static void encode(char *input, char *output, int buffersize, int shiftNum){
+    int i;
     int inputSize = get_string_size(input);
     if(inputSize<buffersize){
         buffersize = inputSize;
     }
-    for(int i = 0; i < buffersize; i++){
+    for(i = 0; i < buffersize; i++){
         if(i == buffersize-1){
             output[i] = '\0';
         }
@@ -373,11 +373,12 @@ static void encode(char *input, char *output, int buffersize, int shiftNum){
 }
 
 static void decode(char *input, char *output, int buffersize, int shiftNum){
+    int i;
     int inputSize = get_string_size(input);
     if(inputSize<buffersize){
         buffersize = inputSize;
     }
-    for(int i = 0; i < buffersize; i++){
+    for(i = 0; i < buffersize; i++){
         if(i == buffersize-1){
             output[i] = '\0';
         }
@@ -391,10 +392,11 @@ static void decode(char *input, char *output, int buffersize, int shiftNum){
 
 static int unshift_char(char* c, int shiftNum){
     //return if not in a-z or A-Z
+    int i;
     if(!is_ascii(*c)){
         return 0;
     }
-    for(int i = 0; i < shiftNum; i++){
+    for( i = 0; i < shiftNum; i++){
         switch (*c){
             case 'a':
                 *c = 'z';
@@ -412,10 +414,11 @@ static int unshift_char(char* c, int shiftNum){
 
 static int shift_char(char* c, int shiftNum){
     //return if not in a-z or A-Z
+    int i;
     if(!is_ascii(*c)){
         return 0;
     }
-    for(int i = 0; i < shiftNum; i++){
+    for( i = 0; i < shiftNum; i++){
         switch (*c){
             case 'z':
                 *c = 'a';
@@ -443,7 +446,8 @@ static int is_ascii(char c){
 }
 
 static int get_string_size(char* string){
-    for(int i = 0; i < __UINT32_MAX__;i++){
+    int i;
+    for( i = 0; i < __UINT32_MAX__;i++){
         if(string[i] == '\0'){
             return i+1;
         }
