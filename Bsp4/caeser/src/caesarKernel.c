@@ -55,10 +55,7 @@ module_param(caesar_qset, int, S_IRUGO);
 MODULE_AUTHOR("Alessandro Rubini, Jonathan Corbet");
 MODULE_LICENSE("Dual BSD/GPL");
 
-
-
-
-struct caesar_dev *buffer_p;	/* allocated in caesar_init_module */
+struct caesar_dev *caesar_devices;	/* allocated in caesar_init_module */
 
 struct caesar_pipe {
         wait_queue_head_t inq, outq;       /* read and write queues */
@@ -71,6 +68,8 @@ struct caesar_pipe {
         struct cdev cdev;                  /* Char device structure */
 };
 
+static struct caesar_pipe *caesar_p;
+
 //static struct caesar_pipe *caesar_p_devices;
 
 static void encode(char *input, char *output, int buffersize, int shiftNum);
@@ -80,6 +79,8 @@ static int shift_char(char* c, int shiftNum);
 static int unshift_char(char* c, int shiftNum);
 static int get_string_size(char* string);
 int shiftNum = 3;
+int caesar_p_buffer =  CAESAR_P_BUFFER;
+
 module_param(shiftNum, int, S_IRUGO);
 /*
  * Open and close
@@ -352,49 +353,32 @@ int caesar_init_module(void)
       for (i = 0; i < caesar_nr_devs; i++) {
       caesar_setup_cdev(&caesar_devices[i], i);
    }
-
-   
-   
-   /* At this point call the init function for any friend device */
-   dev = MKDEV(caesar_major, caesar_minor + caesar_nr_devs);
-   //dev += caesar_p_init(dev);
-
-   
-    //? Init device shared buffer
         
-        buffer_p = kmalloc(sizeof(struct caesar_pipe), GFP_KERNEL);
-        if (buffer_p == NULL) {
-                PDEBUG("Couldnt allocate buffer pipe mem\n");
-                goto fail;
-                return 0;
-        }
-        memset(buffer_p, 0, sizeof(struct caesar_pipe));
+    caesar_p = kmalloc(sizeof(struct caesar_pipe), GFP_KERNEL);
+    if (caesar_p == NULL) {
+        goto fail;
+    }
+        
+    memset(caesar_p, 0, sizeof(struct caesar_pipe));
+    init_waitqueue_head(&(caesar_p->inq));
+    init_waitqueue_head(&(caesar_p->outq));
+    init_MUTEX(&caesar_p->sem);
+    
+    /* allocate the buffer */
+    caesar_p->buffer = kmalloc(caesar_p_buffer, GFP_KERNEL);
+    if (!caesar_p->buffer) {
+        result = -ENOMEM;
+    }
 
-        init_waitqueue_head(&(buffer_p->inq));
-        init_waitqueue_head(&(buffer_p->outq));
-        init_MUTEX(&buffer_p->sem);
+    caesar_p->buffersize = caesar_p_buffer;
+    caesar_p->end = caesar_p->buffer + caesar_p->buffersize;
+    caesar_p->rp = caesar_p->wp = caesar_p->buffer; /* rd and wr from the beginning */
 
-        PDEBUG("allocating buffer buffer\n");
-        buffer_p->buffer = kmalloc(CEASAR_P_BUFFER, GFP_KERNEL);
+    return 0; /* succeed */
 
-        if (!buffer_p->buffer) {
-                //up(&buffer_p->sem); //? freigeben des Semaphoren
-                PDEBUG("kmalloc failed @init\n");
-                result = -ENOMEM;
-                goto fail;
-        }
-
-        buffer_p->buffersize = CEASAR_P_BUFFER;
-        buffer_p->end = buffer_p->buffer + buffer_p->buffersize;
-        buffer_p->rp = buffer_p->wp = buffer_p->buffer; /* rd and wr from the beginning */
-
-   
-   
-   return 0; /* succeed */
-
-  fail:
-   caesar_cleanup_module();
-   return result;
+fail:
+    caesar_cleanup_module();
+    return result;
 }
 
 static void encode(char *input, char *output, int buffersize, int shiftNum){
@@ -500,5 +484,3 @@ static int get_string_size(char* string){
 
 module_init(caesar_init_module);
 module_exit(caesar_cleanup_module);
-
-
