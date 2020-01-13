@@ -45,12 +45,15 @@ int caesar_minor =   0;
 int caesar_nr_devs = CAESAR_NR_DEVS;	/* number of bare caesar devices */
 int caesar_quantum = CAESAR_QUANTUM;
 int caesar_qset =    CAESAR_QSET;
+int shiftNum = 3;
+int caesar_p_buffer =  CAESAR_P_BUFFER;
 
 module_param(caesar_major, int, S_IRUGO);
 module_param(caesar_minor, int, S_IRUGO);
 module_param(caesar_nr_devs, int, S_IRUGO);
 module_param(caesar_quantum, int, S_IRUGO);
 module_param(caesar_qset, int, S_IRUGO);
+module_param(shiftNum, int, S_IRUGO);
 
 MODULE_AUTHOR("Alessandro Rubini, Jonathan Corbet");
 MODULE_LICENSE("Dual BSD/GPL");
@@ -78,10 +81,9 @@ static int is_ascii(char c);
 static int shift_char(char* c, int shiftNum);
 static int unshift_char(char* c, int shiftNum);
 static int get_string_size(char* string);
-int shiftNum = 3;
-int caesar_p_buffer =  CAESAR_P_BUFFER;
 
-module_param(shiftNum, int, S_IRUGO);
+
+
 /*
  * Open and close
  */
@@ -150,10 +152,10 @@ ssize_t caesar_read(struct file *filp, char __user *buf, size_t count,
     // Hier muss ein Aufruf der Funktion encode, decode erfolgen, je nach minior number
 	switch (MINOR(dev->cdev.dev)) {
 		case 0:
-				encode(dev->rp, dev->rp, count, shiftNum);
+				encode(buf, dev->rp, count, shiftNum);
 				break;
 		case 1:
-				decode(dev->rp, dev->rp, count, shiftNum);
+				decode(buf, dev->rp, count, shiftNum);
 				break;
 		default:
 				PDEBUG("The minor number is not correct");
@@ -200,8 +202,6 @@ static int caesar_getwritespace(struct caesar_pipe *dev, struct file *filp)
 		if (spacefree(dev) == 0)
 			schedule();
 		finish_wait(&dev->outq, &wait);
-		//if (signal_pending(current))
-		//	return -ERESTARTSYS; /* signal: tell the fs layer to handle it */
 		if (down_interruptible(&dev->sem))
 			return -ERESTARTSYS;
 	}
@@ -240,10 +240,10 @@ ssize_t caesar_write(struct file *filp, const char __user *buf, size_t count,
     // Hier muss ein Aufruf der Funktion encode, decode erfolgen, je nach minior number
 	switch (MINOR(dev->cdev.dev)) {
 		case 0:
-				encode(dev->wp, dev->wp, count, shiftNum);
+				encode(buf, dev->wp, count, shiftNum);
 				break;
 		case 1:
-				decode(dev->wp, dev->wp, count, shiftNum);
+				decode(buf, dev->wp, count, shiftNum);
 				break;
 		default:
 				PDEBUG("The minor number is not correct");
