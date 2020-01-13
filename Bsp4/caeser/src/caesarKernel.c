@@ -75,12 +75,12 @@ static struct caesar_pipe *caesar_p;
 
 //static struct caesar_pipe *caesar_p_devices;
 
-static void encode(char *input, char *output, int buffersize, int shiftNum);
-static void decode(char *input, char *output, int buffersize, int shiftNum);
+static void encode(const char *input, char *output, int buffersize, int shiftNum);
+static void decode(const char *input, char *output, int buffersize, int shiftNum);
 static int is_ascii(char c);
 static int shift_char(char* c, int shiftNum);
 static int unshift_char(char* c, int shiftNum);
-static int get_string_size(char* string);
+static int get_string_size(const char* string);
 
 
 
@@ -127,7 +127,7 @@ int caesar_release(struct inode *inode, struct file *filp)
 ssize_t caesar_read(struct file *filp, char __user *buf, size_t count,
 		   loff_t *f_pos)
 {
-   struct caesar_pipe *dev = filp->private_data;
+   struct caesar_pipe *dev = caesar_p;
 
 	if (down_interruptible(&dev->sem))
 		return -ERESTARTSYS;
@@ -214,7 +214,7 @@ ssize_t caesar_write(struct file *filp, const char __user *buf, size_t count,
 		    loff_t *f_pos)
 {
     
-   struct caesar_pipe *dev = filp->private_data;
+   struct caesar_pipe *dev = caesar_p;
 	int result;
 
 	if (down_interruptible(&dev->sem))
@@ -381,7 +381,7 @@ fail:
     return result;
 }
 
-static void encode(char *input, char *output, int buffersize, int shiftNum){
+static void encode(const char *input, char *output, int buffersize, int shiftNum){
     int i = 0;
     int inputSize = get_string_size(input);
     if(inputSize<buffersize){
@@ -399,7 +399,7 @@ static void encode(char *input, char *output, int buffersize, int shiftNum){
     }
 }
 
-static void decode(char *input, char *output, int buffersize, int shiftNum){
+static void decode(const char *input, char *output, int buffersize, int shiftNum){
     int i = 0;
     int inputSize = get_string_size(input);
     if(inputSize<buffersize){
@@ -472,7 +472,7 @@ static int is_ascii(char c){
     return 0;
 }
 
-static int get_string_size(char* string){
+static int get_string_size(const char* string){
     int i = 0;
     for( i = 0; i < __UINT32_MAX__;i++){
         if(string[i] == '\0'){
