@@ -6,7 +6,7 @@ EXTRA_CFLAGS += -I$(LDDINC)
 ifneq ($(KERNELRELEASE),)
 # call from kernel build system
 
-obj-m	:= caesarKernel.o
+obj-m	:= caesar.o
 
 else
 

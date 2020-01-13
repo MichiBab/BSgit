@@ -1,7 +1,7 @@
  
 #!/bin/sh
-module="caesarKernel"
-device="caesarKernel"
+module="caesar"
+device="caesar"
 mode="664" # -rw-rw-r-- 
 
 # invoke insmod with all arguments we got
@@ -14,11 +14,10 @@ rm -f /dev/${device}d   # decode
 
 # $2 Zweite spalte == modulname. Printen der Ersten Spalte (major Num)
 major=$(grep "caes" /proc/devices | grep -o '[[:digit:]]*')
-echo $major
+echo "Major Number: $major"
 
 mknod /dev/${device}e c $major 0 # create node Encode as minnum 0
 mknod /dev/${device}d c $major 1 # create node decode as minnum 1
-
 
 # give appropriate group/permissions, and change the group.
 # Not all distributions have staff, some have "wheel" instead.

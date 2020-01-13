@@ -1,6 +1,6 @@
  #!/bin/sh
-module="caesarKernel"
-device="caesarKernel"
+module="caesar"
+device="caesar"
 
 # invoke rmmod with all arguments we got
 /sbin/rmmod $module $* || exit 1
