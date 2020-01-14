@@ -18,7 +18,7 @@
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/init.h>
-
+#include <linux/kdev_t.h>
 #include <linux/kernel.h>	/* printk() */
 #include <linux/slab.h>		/* kmalloc() */
 #include <linux/fs.h>		/* everything... */
@@ -45,10 +45,12 @@ int caesar_nr_devs = CAESAR_NR_DEVS;	/* number of bare caesar devices */
 int caesar_quantum = CAESAR_QUANTUM;
 int caesar_qset =    CAESAR_QSET;
 int shiftNum = 3;
-int buffersize =  200;
+int buffersize =  20;
 
-static DEFINE_MUTEX(read_m);
-static DEFINE_MUTEX(write_m);
+static DEFINE_MUTEX(read_m0);
+static DEFINE_MUTEX(write_m0);
+static DEFINE_MUTEX(read_m1);
+static DEFINE_MUTEX(write_m1);
 
 module_param(buffersize, int, S_IRUGO);
 module_param(caesar_minor, int, S_IRUGO);
@@ -70,8 +72,11 @@ struct caesar_pipe {
         struct cdev cdev;                  /* Char device structure */
 };
 
-static struct caesar_pipe *caesar_p;
 
+//caesar_p
+static struct caesar_pipe *caesar_p0;
+static struct caesar_pipe *caesar_p1;
+//static struct caesar_pipe *caesar_p;
 //static struct caesar_pipe *caesar_p_devices;
 
 static void encode(const char *input, char *output, int buffersize, int shiftNum);
@@ -90,28 +95,61 @@ static int get_string_size(const char* string);
 int caesar_open(struct inode *inode, struct file *filp)
 {
    struct caesar_dev *dev; /* device information */
-
+   
+    unsigned int minor_num = MINOR(inode -> i_rdev);
+    switch (minor_num){
+        case 0:
+            if (filp->f_mode & FMODE_READ){
+        
+            if(!mutex_trylock(&read_m0)){    /// Try to acquire the mutex (i.e., put the lock on/down)
+                                        /// returns 1 if successful and 0 if there is contention
+                printk(KERN_ALERT "EBBChar: Device in use by another process");
+                return -EBUSY;
+            }
+        
+            }
+            //dev->nreaders++; // todo, es darf maximal ein Reader existieren
+            if (filp->f_mode & FMODE_WRITE){
+        
+                if(!mutex_trylock(&write_m0)){    /// Try to acquire the mutex (i.e., put the lock on/down)
+                                        /// returns 1 if successful and 0 if there is contention
+                    printk(KERN_ALERT "EBBChar: Device in use by another process");
+                    return -EBUSY;
+                    }
+            
+            }
+            break;
+        
+        case 1:
+            if (filp->f_mode & FMODE_READ){
+        
+            if(!mutex_trylock(&read_m1)){    /// Try to acquire the mutex (i.e., put the lock on/down)
+                                        /// returns 1 if successful and 0 if there is contention
+                printk(KERN_ALERT "EBBChar: Device in use by another process");
+                return -EBUSY;
+            }
+        
+            }
+            //dev->nreaders++; // todo, es darf maximal ein Reader existieren
+            if (filp->f_mode & FMODE_WRITE){
+        
+                if(!mutex_trylock(&write_m1)){    /// Try to acquire the mutex (i.e., put the lock on/down)
+                                        /// returns 1 if successful and 0 if there is contention
+                    printk(KERN_ALERT "EBBChar: Device in use by another process");
+                    return -EBUSY;
+                    }
+            
+            }
+            break;
+            
+        default:
+            return -EBUSY;
+    }
+    
    //TODO: HIER DIE ABFRAGE MIT DEV SPEZIFISCHER MUTEX
     /* use f_mode,not  f_flags: it's cleaner (fs/open.c tells why) */
-	if (filp->f_mode & FMODE_READ){
-        
-        if(!mutex_trylock(&read_m)){    /// Try to acquire the mutex (i.e., put the lock on/down)
-                                        /// returns 1 if successful and 0 if there is contention
-            printk(KERN_ALERT "EBBChar: Device in use by another process");
-            return -EBUSY;
-        }
-        
-    }
-		//dev->nreaders++; // todo, es darf maximal ein Reader existieren
-	if (filp->f_mode & FMODE_WRITE){
-        
-        if(!mutex_trylock(&write_m)){    /// Try to acquire the mutex (i.e., put the lock on/down)
-                                        /// returns 1 if successful and 0 if there is contention
-            printk(KERN_ALERT "EBBChar: Device in use by another process");
-            return -EBUSY;
-        }
-        
-    }
+    
+	
 		//dev->nwriters++; // todo, es darf maximal ein Writer existieren
 
    dev = container_of(inode->i_cdev, struct caesar_dev, cdev);
@@ -123,14 +161,38 @@ int caesar_open(struct inode *inode, struct file *filp)
 int caesar_release(struct inode *inode, struct file *filp)
 {
 
-    //TODO: Hier soll die mutex freigegeben werden vom device
-	if (filp->f_mode & FMODE_READ){
-        mutex_unlock(&read_m); 
+    unsigned int minor_num = MINOR(inode -> i_rdev);
+    switch (minor_num){
+        case 0:
+            if (filp->f_mode & FMODE_READ){
+        
+                mutex_unlock(&read_m0); 
+        
+            }
+            //dev->nreaders++; // todo, es darf maximal ein Reader existieren
+            if (filp->f_mode & FMODE_WRITE){
+        
+                mutex_unlock(&write_m0); 
+            }
+            break;
+        
+        case 1:
+                if (filp->f_mode & FMODE_READ){
+        
+                    mutex_unlock(&read_m1); 
+        
+                }
+                //dev->nreaders++; // todo, es darf maximal ein Reader existieren
+                if (filp->f_mode & FMODE_WRITE){
+        
+                    mutex_unlock(&write_m1); 
+                }
+            break;
+            
+        default:
+            return -EBUSY;
     }
-		//dev->nreaders--; // todo, es darf maximal ein Reader existieren
-	if (filp->f_mode & FMODE_WRITE){
-        mutex_unlock(&write_m);
-    }
+
 		//dev->nwriters--; // todo, es darf maximal ein Writer existieren
 	//if (dev->nreaders + dev->nwriters == 0) {
 	//	kfree(dev->buffer);
@@ -147,8 +209,21 @@ ssize_t caesar_read(struct file *filp, char __user *buf, size_t count,
 		   loff_t *f_pos)
 {
    struct caesar_dev *priv_dev = filp->private_data;
-   struct caesar_pipe *dev = caesar_p;
+   
+    struct caesar_pipe *dev;
 
+   switch (MINOR(priv_dev->cdev.dev)) {
+		case 0:
+				dev = caesar_p0;
+				break;
+		case 1:
+				dev = caesar_p1;
+				break;
+		default:
+				PDEBUG("The minor number is not correct");
+				return -ERESTARTSYS;
+
+	}
    
 	if (down_interruptible(&dev->sem))
 		return -ERESTARTSYS;
@@ -236,8 +311,22 @@ ssize_t caesar_write(struct file *filp, const char __user *buf, size_t count,
 		    loff_t *f_pos)
 {
     struct caesar_dev *priv_dev = filp->private_data;
-   struct caesar_pipe *dev = caesar_p;
+    struct caesar_pipe *dev;
 	int result;
+    
+    switch (MINOR(priv_dev->cdev.dev)) {
+		case 0:
+				dev = caesar_p0;
+				break;
+		case 1:
+				dev = caesar_p1;
+				break;
+		default:
+				PDEBUG("The minor number is not correct");
+				return -EBUSY;
+
+	}
+    
    
 	if (down_interruptible(&dev->sem))
 		return -ERESTARTSYS;
@@ -307,8 +396,10 @@ void caesar_cleanup_module(void)
 {
    int i = 0;
    dev_t devno = MKDEV(caesar_major, caesar_minor);
-    mutex_destroy(&write_m);
-    mutex_destroy(&read_m);
+    mutex_destroy(&write_m0);
+    mutex_destroy(&read_m0);
+    mutex_destroy(&write_m1);
+    mutex_destroy(&read_m1);
    /* Get rid of our char dev entries */
    if (caesar_devices) {
       for (i = 0; i < caesar_nr_devs; i++) {
@@ -342,6 +433,37 @@ static void caesar_setup_cdev(struct caesar_dev *dev, int index)
 }
 
 
+static int init_pipe(struct caesar_pipe* caesar_p){
+    
+    int result = 0;
+    
+    caesar_p = kmalloc(sizeof(struct caesar_pipe), GFP_KERNEL);
+    if (caesar_p == NULL) {
+        goto fail;
+    }
+        
+    memset(caesar_p, 0, sizeof(struct caesar_pipe));
+    init_waitqueue_head(&(caesar_p->inq));
+    init_waitqueue_head(&(caesar_p->outq));
+    init_MUTEX(&caesar_p->sem);
+    
+    /* allocate the buffer */
+    caesar_p->buffer = kmalloc(buffersize, GFP_KERNEL);
+    if (!caesar_p->buffer) {
+        result = -ENOMEM;
+    }
+
+    caesar_p->buffersize = buffersize;
+    caesar_p->end = caesar_p->buffer + caesar_p->buffersize;
+    caesar_p->rp = caesar_p->wp = caesar_p->buffer; /* rd and wr from the beginning */
+    
+    return result;
+    
+    fail:
+    caesar_cleanup_module();
+    return result;
+}
+
 int caesar_init_module(void)
 {
    int result, i;
@@ -351,8 +473,10 @@ int caesar_init_module(void)
  * Get a range of minor numbers to work with, asking for a dynamic
  * major unless directed otherwise at load time.
  */
-    mutex_init(&write_m);
-    mutex_init(&read_m);
+    mutex_init(&write_m0);
+    mutex_init(&read_m0);
+    mutex_init(&read_m1);
+    mutex_init(&write_m1);
 
       result = alloc_chrdev_region(&dev, caesar_minor, caesar_nr_devs,
 				   "caesar");
@@ -379,25 +503,49 @@ int caesar_init_module(void)
       caesar_setup_cdev(&caesar_devices[i], i);
    }
         
-    caesar_p = kmalloc(sizeof(struct caesar_pipe), GFP_KERNEL);
-    if (caesar_p == NULL) {
+    //result = init_pipe(caesar_p0);
+    //result = init_pipe(caesar_p1);
+    
+    caesar_p0 = kmalloc(sizeof(struct caesar_pipe), GFP_KERNEL);
+    if (caesar_p0 == NULL) {
         goto fail;
     }
         
-    memset(caesar_p, 0, sizeof(struct caesar_pipe));
-    init_waitqueue_head(&(caesar_p->inq));
-    init_waitqueue_head(&(caesar_p->outq));
-    init_MUTEX(&caesar_p->sem);
+    memset(caesar_p0, 0, sizeof(struct caesar_pipe));
+    init_waitqueue_head(&(caesar_p0->inq));
+    init_waitqueue_head(&(caesar_p0->outq));
+    init_MUTEX(&caesar_p0->sem);
     
     /* allocate the buffer */
-    caesar_p->buffer = kmalloc(buffersize, GFP_KERNEL);
-    if (!caesar_p->buffer) {
+    caesar_p0->buffer = kmalloc(buffersize, GFP_KERNEL);
+    if (!caesar_p0->buffer) {
         result = -ENOMEM;
     }
 
-    caesar_p->buffersize = buffersize;
-    caesar_p->end = caesar_p->buffer + caesar_p->buffersize;
-    caesar_p->rp = caesar_p->wp = caesar_p->buffer; /* rd and wr from the beginning */
+    caesar_p0->buffersize = buffersize;
+    caesar_p0->end = caesar_p0->buffer + caesar_p0->buffersize;
+    caesar_p0->rp = caesar_p0->wp = caesar_p0->buffer; /* rd and wr from the beginning */
+    
+    
+    caesar_p1 = kmalloc(sizeof(struct caesar_pipe), GFP_KERNEL);
+    if (caesar_p1 == NULL) {
+        goto fail;
+    }
+        
+    memset(caesar_p1, 0, sizeof(struct caesar_pipe));
+    init_waitqueue_head(&(caesar_p1->inq));
+    init_waitqueue_head(&(caesar_p1->outq));
+    init_MUTEX(&caesar_p1->sem);
+    
+    /* allocate the buffer */
+    caesar_p1->buffer = kmalloc(buffersize, GFP_KERNEL);
+    if (!caesar_p1->buffer) {
+        result = -ENOMEM;
+    }
+
+    caesar_p1->buffersize = buffersize;
+    caesar_p1->end = caesar_p1->buffer + caesar_p1->buffersize;
+    caesar_p1->rp = caesar_p1->wp = caesar_p1->buffer; /* rd and wr from the beginning */
 
     return 0; /* succeed */
 

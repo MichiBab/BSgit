@@ -39,6 +39,7 @@ __attribute__((section("__versions"))) = {
 	{ 0xc63e9462, __VMLINUX_SYMBOL_STR(prepare_to_wait) },
 	{ 0x4627393a, __VMLINUX_SYMBOL_STR(current_task) },
 	{ 0xad73041f, __VMLINUX_SYMBOL_STR(autoremove_wake_function) },
+	{ 0xbf63e976, __VMLINUX_SYMBOL_STR(mutex_unlock) },
 	{ 0x5b205e34, __VMLINUX_SYMBOL_STR(__wake_up) },
 	{ 0xb44ad4b3, __VMLINUX_SYMBOL_STR(_copy_to_user) },
 	{ 0xced6bcd8, __VMLINUX_SYMBOL_STR(finish_wait) },
@@ -48,7 +49,6 @@ __attribute__((section("__versions"))) = {
 	{ 0xa1c76e0a, __VMLINUX_SYMBOL_STR(_cond_resched) },
 	{ 0x78e739aa, __VMLINUX_SYMBOL_STR(up) },
 	{ 0xe0afe59e, __VMLINUX_SYMBOL_STR(down_interruptible) },
-	{ 0xbf63e976, __VMLINUX_SYMBOL_STR(mutex_unlock) },
 	{ 0x27e1a049, __VMLINUX_SYMBOL_STR(printk) },
 	{ 0xccdfd527, __VMLINUX_SYMBOL_STR(mutex_trylock) },
 	{ 0xbdfb6dbb, __VMLINUX_SYMBOL_STR(__fentry__) },
@@ -60,6 +60,6 @@ __attribute__((section(".modinfo"))) =
 "depends=";
 
 
-MODULE_INFO(srcversion, "4E4F0853AF8EAB37D51AC3E");
+MODULE_INFO(srcversion, "3655267720286F8B2F285CC");
 
 MODULE_INFO(suserelease, "openSUSE Leap 15.1");

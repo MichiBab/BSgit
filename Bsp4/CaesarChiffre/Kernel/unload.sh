@@ -2,10 +2,9 @@
 module="caesar"
 device="caesar"
 
-# invoke rmmod with all arguments we got
+# wenn rmmod nicht geht, führe exit 1 aus.
 /sbin/rmmod $module $* || exit 1
 
-# Remove stale nodes
+# remove devices
+rm -f /dev/${device}*
 
-rm -f /dev/${device}d
-rm -f /dev/${device}e
