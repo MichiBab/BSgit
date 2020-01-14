@@ -77,15 +77,14 @@ struct caesar_pipe {
 //caesar_p
 static struct caesar_pipe *caesar_p0;
 static struct caesar_pipe *caesar_p1;
-//static struct caesar_pipe *caesar_p;
-//static struct caesar_pipe *caesar_p_devices;
+
 
 static void encode(char *input, char *output, int buffersize, int shiftNum);
 static void decode(char *input, char *output, int buffersize, int shiftNum);
 static int is_ascii(char c);
 static int shift_char(char* c, int shiftNum);
 static int unshift_char(char* c, int shiftNum);
-static int get_string_size(char* string);
+
 
 
 
@@ -216,7 +215,7 @@ ssize_t caesar_read(struct file *filp, char __user *buf, size_t count,
 		   loff_t *f_pos)
 {
    struct caesar_dev *priv_dev = filp->private_data;
-   int i = 0;
+ 
     struct caesar_pipe *dev;
 
    switch (MINOR(priv_dev->cdev.dev)) {
@@ -306,7 +305,7 @@ ssize_t caesar_write(struct file *filp, const char __user *buf, size_t count,
     struct caesar_dev *priv_dev = filp->private_data;
     struct caesar_pipe *dev;
 	int result;
-    
+    char* write_buffer;
     switch (MINOR(priv_dev->cdev.dev)) {
 		case 0:
 				dev = caesar_p0;
@@ -336,7 +335,7 @@ ssize_t caesar_write(struct file *filp, const char __user *buf, size_t count,
 	else /* the write pointer has wrapped, fill up to rp-1 */
 		count = min(count, (size_t)(dev->rp - dev->wp - 1));
     
-    char write_buffer[count];
+    write_buffer = kmalloc(count * sizeof(char), GFP_KERNEL);
     
 	PDEBUG("Going to accept %li bytes to %p from %p\n", (long)count, dev->wp, buf);
 	if (copy_from_user(write_buffer, buf, count)) {
@@ -591,15 +590,6 @@ static int is_ascii(char c){
     return 0;
 }
 
-static int get_string_size(char* string){
-    int i = 0;
-    for( i = 0; i < __UINT32_MAX__;i++){
-        if(string[i] == '\0'){
-            return i+1;
-        }
-    }
-    return 0;
-}
 
 module_init(caesar_init_module);
 module_exit(caesar_cleanup_module);
