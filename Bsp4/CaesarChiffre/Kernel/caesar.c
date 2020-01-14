@@ -76,8 +76,6 @@ struct caesar_pipe {
 //caesar_p
 static struct caesar_pipe *caesar_p0;
 static struct caesar_pipe *caesar_p1;
-//static struct caesar_pipe *caesar_p;
-//static struct caesar_pipe *caesar_p_devices;
 
 static void encode(const char *input, char *output, int buffersize, int shiftNum);
 static void decode(const char *input, char *output, int buffersize, int shiftNum);
