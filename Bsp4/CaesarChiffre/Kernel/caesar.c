@@ -38,6 +38,7 @@
 /*
  * Our parameters which can be set at load time.
  */
+#define CAESAR_DEBUG 
 
 int caesar_major =   CAESAR_MAJOR;
 int caesar_minor =   0;
@@ -45,7 +46,7 @@ int caesar_nr_devs = CAESAR_NR_DEVS;	/* number of bare caesar devices */
 int caesar_quantum = CAESAR_QUANTUM;
 int caesar_qset =    CAESAR_QSET;
 int shiftNum = 3;
-int buffersize =  20;
+int buffersize =  10;
 
 static DEFINE_MUTEX(read_m0);
 static DEFINE_MUTEX(write_m0);
@@ -76,13 +77,15 @@ struct caesar_pipe {
 //caesar_p
 static struct caesar_pipe *caesar_p0;
 static struct caesar_pipe *caesar_p1;
+//static struct caesar_pipe *caesar_p;
+//static struct caesar_pipe *caesar_p_devices;
 
-static void encode(const char *input, char *output, int buffersize, int shiftNum);
-static void decode(const char *input, char *output, int buffersize, int shiftNum);
+static void encode(char *input, char *output, int buffersize, int shiftNum);
+static void decode(char *input, char *output, int buffersize, int shiftNum);
 static int is_ascii(char c);
 static int shift_char(char* c, int shiftNum);
 static int unshift_char(char* c, int shiftNum);
-static int get_string_size(const char* string);
+static int get_string_size(char* string);
 
 
 
@@ -95,6 +98,10 @@ int caesar_open(struct inode *inode, struct file *filp)
    struct caesar_dev *dev; /* device information */
    
     unsigned int minor_num = MINOR(inode -> i_rdev);
+    
+    
+    
+    
     switch (minor_num){
         case 0:
             if (filp->f_mode & FMODE_READ){
@@ -143,6 +150,9 @@ int caesar_open(struct inode *inode, struct file *filp)
         default:
             return -EBUSY;
     }
+    dev = container_of(inode->i_cdev, struct caesar_dev, cdev);
+    filp->private_data = dev; /* for other methods */
+    
     
    //TODO: HIER DIE ABFRAGE MIT DEV SPEZIFISCHER MUTEX
     /* use f_mode,not  f_flags: it's cleaner (fs/open.c tells why) */
@@ -150,8 +160,7 @@ int caesar_open(struct inode *inode, struct file *filp)
 	
 		//dev->nwriters++; // todo, es darf maximal ein Writer existieren
 
-   dev = container_of(inode->i_cdev, struct caesar_dev, cdev);
-   filp->private_data = dev; /* for other methods */
+    
 
    return 0;          /* success */
 }
@@ -207,7 +216,7 @@ ssize_t caesar_read(struct file *filp, char __user *buf, size_t count,
 		   loff_t *f_pos)
 {
    struct caesar_dev *priv_dev = filp->private_data;
-   
+   int i = 0;
     struct caesar_pipe *dev;
 
    switch (MINOR(priv_dev->cdev.dev)) {
@@ -242,26 +251,12 @@ ssize_t caesar_read(struct file *filp, char __user *buf, size_t count,
 		count = min(count, (size_t)(dev->wp - dev->rp));
 	else /* the write pointer has wrapped, return data up to dev->end */
 		count = min(count, (size_t)(dev->end - dev->rp));
-    dev->rp--;
-    // Hier muss ein Aufruf der Funktion encode, decode erfolgen, je nach minior number
-	switch (MINOR(priv_dev->cdev.dev)) {
-		case 0:
-				encode(buf, dev->rp, count, shiftNum);
-				break;
-		case 1:
-				decode(buf, dev->rp, count, shiftNum);
-				break;
-		default:
-				PDEBUG("The minor number is not correct");
-				break;
-
-	}
 
 	if (copy_to_user(buf, dev->rp, count)) {
 		up (&dev->sem);
 		return -EFAULT;
 	}
-	dev->rp++;
+
 	dev->rp += count;
 	if (dev->rp == dev->end)
 		dev->rp = dev->buffer; /* wrapped */
@@ -340,19 +335,23 @@ ssize_t caesar_write(struct file *filp, const char __user *buf, size_t count,
 		count = min(count, (size_t)(dev->end - dev->wp)); /* to end-of-buf */
 	else /* the write pointer has wrapped, fill up to rp-1 */
 		count = min(count, (size_t)(dev->rp - dev->wp - 1));
+    
+    char write_buffer[count];
+    
 	PDEBUG("Going to accept %li bytes to %p from %p\n", (long)count, dev->wp, buf);
-	if (copy_from_user(dev->wp, buf, count)) {
+	if (copy_from_user(write_buffer, buf, count)) {
 		up (&dev->sem);
 		return -EFAULT;
 	}
+	
 
     // Hier muss ein Aufruf der Funktion encode, decode erfolgen, je nach minior number
 	switch (MINOR(priv_dev->cdev.dev)) {
-		case 0:
-				encode(buf, dev->wp, count, shiftNum);
+		case 0:   //from -> to.
+				encode(write_buffer, dev->wp, count, shiftNum);
 				break;
 		case 1:
-				decode(buf, dev->wp, count, shiftNum);
+				decode(write_buffer, dev->wp, count, shiftNum);
 				break;
 		default:
 				PDEBUG("The minor number is not correct");
@@ -420,7 +419,7 @@ void caesar_cleanup_module(void)
 static void caesar_setup_cdev(struct caesar_dev *dev, int index)
 {
    int err, devno = MKDEV(caesar_major, caesar_minor + index);
-    
+   //up(&dev->sem);
    cdev_init(&dev->cdev, &caesar_fops);
    dev->cdev.owner = THIS_MODULE;
    dev->cdev.ops = &caesar_fops;
@@ -430,43 +429,12 @@ static void caesar_setup_cdev(struct caesar_dev *dev, int index)
       printk(KERN_NOTICE "Error %d adding caesar%d", err, index);
 }
 
-
-static int init_pipe(struct caesar_pipe* caesar_p){
-    
-    int result = 0;
-    
-    caesar_p = kmalloc(sizeof(struct caesar_pipe), GFP_KERNEL);
-    if (caesar_p == NULL) {
-        goto fail;
-    }
-        
-    memset(caesar_p, 0, sizeof(struct caesar_pipe));
-    init_waitqueue_head(&(caesar_p->inq));
-    init_waitqueue_head(&(caesar_p->outq));
-    init_MUTEX(&caesar_p->sem);
-    
-    /* allocate the buffer */
-    caesar_p->buffer = kmalloc(buffersize, GFP_KERNEL);
-    if (!caesar_p->buffer) {
-        result = -ENOMEM;
-    }
-
-    caesar_p->buffersize = buffersize;
-    caesar_p->end = caesar_p->buffer + caesar_p->buffersize;
-    caesar_p->rp = caesar_p->wp = caesar_p->buffer; /* rd and wr from the beginning */
-    
-    return result;
-    
-    fail:
-    caesar_cleanup_module();
-    return result;
-}
-
 int caesar_init_module(void)
 {
    int result, i;
    dev_t dev = 0;
-
+    printk(KERN_ALERT "TEST printk");
+   PDEBUG("TEST");
 /*
  * Get a range of minor numbers to work with, asking for a dynamic
  * major unless directed otherwise at load time.
@@ -500,9 +468,6 @@ int caesar_init_module(void)
       for (i = 0; i < caesar_nr_devs; i++) {
       caesar_setup_cdev(&caesar_devices[i], i);
    }
-        
-    //result = init_pipe(caesar_p0);
-    //result = init_pipe(caesar_p1);
     
     caesar_p0 = kmalloc(sizeof(struct caesar_pipe), GFP_KERNEL);
     if (caesar_p0 == NULL) {
@@ -519,11 +484,10 @@ int caesar_init_module(void)
     if (!caesar_p0->buffer) {
         result = -ENOMEM;
     }
-
     caesar_p0->buffersize = buffersize;
     caesar_p0->end = caesar_p0->buffer + caesar_p0->buffersize;
     caesar_p0->rp = caesar_p0->wp = caesar_p0->buffer; /* rd and wr from the beginning */
-    
+    up(&caesar_p0->sem);
     
     caesar_p1 = kmalloc(sizeof(struct caesar_pipe), GFP_KERNEL);
     if (caesar_p1 == NULL) {
@@ -544,7 +508,7 @@ int caesar_init_module(void)
     caesar_p1->buffersize = buffersize;
     caesar_p1->end = caesar_p1->buffer + caesar_p1->buffersize;
     caesar_p1->rp = caesar_p1->wp = caesar_p1->buffer; /* rd and wr from the beginning */
-
+    up(&caesar_p1->sem);
     return 0; /* succeed */
 
 fail:
@@ -552,40 +516,24 @@ fail:
     return result;
 }
 
-static void encode(const char *input, char *output, int buffersize, int shiftNum){
+static void encode(char *input, char *output, int pbuffersize, int shiftNum){
     int i = 0;
-    int inputSize = get_string_size(input);
-    if(inputSize<buffersize){
-        buffersize = inputSize;
-    }
-    for(i = 0; i < buffersize; i++){
-        if(i == buffersize-1){
-            output[i] = '\0';
-        }
-        else{
+    for(i = 0; i < pbuffersize; i++){
             char c = input[i];
             shift_char(&c,shiftNum);
             output[i] = c;
-        } 
     }
 }
 
-static void decode(const char *input, char *output, int buffersize, int shiftNum){
+static void decode(char *input, char *output, int pbuffersize, int shiftNum){
     int i = 0;
-    int inputSize = get_string_size(input);
-    if(inputSize<buffersize){
-        buffersize = inputSize;
+    for(i = 0; i < pbuffersize; i++){
+        char c = input[i];
+        unshift_char(&c,shiftNum);
+        output[i] = c;
     }
-    for(i = 0; i < buffersize; i++){
-        if(i == buffersize-1){
-            output[i] = '\0';
-        }
-        else{
-            char c = input[i];
-            unshift_char(&c,shiftNum);
-            output[i] = c;
-        } 
-    }
+    
+    
 }
 
 static int unshift_char(char* c, int shiftNum){
@@ -643,7 +591,7 @@ static int is_ascii(char c){
     return 0;
 }
 
-static int get_string_size(const char* string){
+static int get_string_size(char* string){
     int i = 0;
     for( i = 0; i < __UINT32_MAX__;i++){
         if(string[i] == '\0'){
